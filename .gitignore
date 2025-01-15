@@ -1,9 +1,10 @@
 /env/
 /resources/
 /src/noise2noise_claude/input/
+/src/noise2noise_claude/images/
 /src/noise2noise_claude/model_dir/
 /src/noise2noise_claude/output/
-/src/noise2noise_claude/train_dir/
+/src/noise2noise_claude/train_data/
 /src/noise2noise_claude/valid_data/
 
 .DS_Store

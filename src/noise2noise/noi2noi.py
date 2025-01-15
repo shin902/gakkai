@@ -22,8 +22,8 @@ class Noi2noi:
         self.net = Unet(cn=3) # ネット
         self.opt = torch.optim.Adam(self.net.parameters(),lr=gakushuuritsu) # オプティマイザ
         if(gpu):
-            self.dev = torch.device('cuda')
-            self.net.cuda()
+            self.dev = torch.device('mps')
+            self.net = self.net.to(self.dev)
         else:
             self.dev = torch.device('cpu')
 
@@ -160,13 +160,13 @@ class Kenshou:
         graph_kaku: グラフを書くか
         '''
 
-        gg = sorted(glob(kunren_folder+'/*/000.jpg'))[:n_kenshou]
+        gg = sorted(glob(kunren_folder+'/*/*.jpg'))[:n_kenshou]
         self.x_kunren = torch.Tensor(np.stack([imread(g) for g in gg]).transpose(0,3,1,2)/255.)
-        gg = sorted(glob(kunren_folder+'/*/001.jpg'))[:n_kenshou]
+        gg = sorted(glob(kunren_folder+'/*/*.jpg'))[:n_kenshou]
         self.y_kunren = torch.Tensor(np.stack([imread(g) for g in gg]).transpose(0,3,1,2)/255.)
-        gg = sorted(glob(kenshou_folder+'/*/000.jpg'))[:n_kenshou]
+        gg = sorted(glob(kenshou_folder+'/*/*.jpg'))[:n_kenshou]
         self.x_kenshou = torch.Tensor(np.stack([imread(g) for g in gg]).transpose(0,3,1,2)/255.)
-        gg = sorted(glob(kenshou_folder+'/*/001.jpg'))[:n_kenshou]
+        gg = sorted(glob(kenshou_folder+'/*/*.jpg'))[:n_kenshou]
         self.y_kenshou = torch.Tensor(np.stack([imread(g) for g in gg]).transpose(0,3,1,2)/255.)
 
         self.n_kenshou = n_kenshou
@@ -216,8 +216,8 @@ class Kenshou:
 
 
 # ここで設定
-kunren_folder = 'noi_gazou_kunren' # 訓練のノイズ画像を納めた場所
-kenshou_folder = 'noi_gazou_kenshou' # 検証のノイズ画像を納めた場所
+kunren_folder = './train_data' # 訓練のノイズ画像を納めた場所
+kenshou_folder = './valid_data' # 検証のノイズ画像を納めた場所
 hozon_folder = 'noi2noi' # 結果を保存する場所
 n_batch = 4 # バッチサイズ
 n_tsukau = 100 # 訓練の画像毎に最大何枚ノイズ画像を使うか
