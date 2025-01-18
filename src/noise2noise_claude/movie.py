@@ -4,27 +4,53 @@ import cv2
 import os
 from tqdm import tqdm
 from glob import glob
+import numpy as np
+from ellipse import ellipse_to_circle
+
 
 def save_all_frames(video_path, dir_path, basename, ext='jpg'):
-    cap = cv2.VideoCapture(video_path)
+	cap = cv2.VideoCapture(video_path)
 
-    if not cap.isOpened():
-        return
+	if not cap.isOpened():
+		return
 
-    os.makedirs(dir_path, exist_ok=True)
-    base_path = os.path.join(dir_path, basename)
+	os.makedirs(dir_path, exist_ok=True)
+	base_path = os.path.join(dir_path, basename)
 
-    digit = len(str(int(cap.get(cv2.CAP_PROP_FRAME_COUNT))))
+	digit = len(str(int(cap.get(cv2.CAP_PROP_FRAME_COUNT))))
 
-    n = 0
+	n = 0
 
-    while True:
-        ret, frame = cap.read()
-        if ret:
-            cv2.imwrite('{}_{}.{}'.format(base_path, str(n).zfill(digit), ext), frame)
-            n += 1
-        else:
-            return
+	while True:
+		ret, frame = cap.read()
+		if ret:
+			cv2.imwrite('{}_{}.{}'.format(base_path, str(n).zfill(digit), ext), frame)
+			n += 1
+		else:
+			return
+
+def move_center(img_path, out_path):
+	src_img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+
+	# ② 画像の中心座標を求める
+	height,width  = src_img.shape[:2]
+	gy = height / 2
+	gx = width / 2
+	# print("画像の中心：y={0}, x={1}\n".format(gy, gx))
+
+	# ③ オブジェクトの重心を求める
+	object_g = np.array(np.where(src_img == 255)).mean(axis=1)
+	# print("オブジェクトの中心座標：y={0}, x={1}\n".format(object_g[0], object_g[1]))
+
+	# ④ 重心のズレを補正する
+	dy = gy - object_g[0]
+	dx = gx - object_g[1]
+	print("中心座標とのズレ: y={0}, x={1}\n".format(dy, dx))
+
+	mat_g = np.array([[1, 0, dx], [0, 1, dy]], dtype=np.float32)
+	affine_img_g = cv2.warpAffine(src_img, mat_g, (width, height))
+	cv2.imwrite(out_path, affine_img_g)
+
 
 def generate_movie(img_list, img_folder, out_folder, output_path):
 	os.makedirs(os.path.join(out_folder, img_folder), exist_ok=True)
@@ -66,7 +92,7 @@ if __name__ == "__main__":
 	output_path = img_folder + ".mp4"
 
 	# 動画から連番画像を生成する
-	save_all_frames("input.mp4", img_folder)
+	# save_all_frames("input.mp4", img_folder)
 
 	img_list = sorted(glob(img_folder+"/*.jpg"))
 	frames = len(img_list)
@@ -74,6 +100,16 @@ if __name__ == "__main__":
 	# ノイズ除去画像を生成
 	for img_name in tqdm(img_list):
 		trainer.denoise_image(img_name, os.path.join(out_folder, img_name))
+
+		img = cv2.imread(os.path.join(out_folder, img_name))
+		enhanced = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX)
+
+		# 楕円を真円に変換
+		result, detected, (center, axes, angle) = ellipse_to_circle(enhanced)
+		cv2.imwrite("output2/{}".format(img_name), result)
+
+
+
 
 	# 動画を生成
 	generate_movie(img_list, img_folder, out_folder, output_path)
