@@ -139,7 +139,7 @@ def draw_detected_shapes(image, center, axes, angle, color=(0, 255, 0), thicknes
 
     return image_with_shape
 
-def main(img_path):
+def main(img_path, out_path):
     # 画像の読み込み
     image = cv2.imread(img_path)
 
@@ -159,11 +159,11 @@ def main(img_path):
         cv2.imshow('Detected', detected)
         cv2.imshow('Result', result)
 
-    cv2.imwrite('result3.jpg', result)
+    cv2.imwrite(out_path, result)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
-def 
+def
 
 if __name__ == '__main__':
     # main("./995.jpg")
