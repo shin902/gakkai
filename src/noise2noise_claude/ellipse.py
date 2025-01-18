@@ -1,5 +1,7 @@
 import cv2
 import numpy as np
+from glob import glob
+import os
 
 def detect_ellipse(image):
     """
@@ -36,14 +38,6 @@ def detect_ellipse(image):
 
         # 最大の輪郭を見つける
         largest_contour = max(contours, key=cv2.contourArea)
-        largest_area = cv2.contourArea(largest_contour)
-        print(f"最大の輪郭の面積: {largest_area}")
-
-        # 最大の輪郭を緑色で描画
-        cv2.drawContours(debug_image, [largest_contour], -1, (0, 255, 0), 2)
-
-        # 点数が十分かチェック
-        print(f"輪郭の点数: {len(largest_contour)}")
 
         if len(largest_contour) >= 5:
             try:
@@ -52,17 +46,6 @@ def detect_ellipse(image):
                 center = ellipse[0]
                 axes = ellipse[1]
                 angle = ellipse[2]
-
-                # フィッティングされた楕円を赤色で描画
-                cv2.ellipse(debug_image,
-                           (int(center[0]), int(center[1])),
-                           (int(axes[0]/2), int(axes[1]/2)),
-                           angle, 0, 360, (0, 0, 255), 2)
-
-                print(f"楕円フィッティング成功 - 中心: {center}, 軸: {axes}, 角度: {angle}")
-
-                # デバッグ画像を表示
-                cv2.imshow('Debug Image', debug_image)
 
                 return center, axes, angle
 
@@ -152,18 +135,25 @@ def main(img_path, out_path):
 
     # 楕円を真円に変換
     result, detected, (center, axes, angle) = ellipse_to_circle(enhanced)
-
+    """
     if center is not None:
         # 結果の表示
         cv2.imshow('Original', image)
         cv2.imshow('Detected', detected)
         cv2.imshow('Result', result)
-
+    """
     cv2.imwrite(out_path, result)
+    """
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+    """
+def main2(img_dir, out_dir):
+    img_list = sorted(glob(img_dir+"/*.jpg"))
+    print(img_list)
+    for i, img_path in enumerate(img_list):
+        main(img_path, os.path.join(out_dir, str(i)+".jpg"))
+        print(i)
 
-def
 
 if __name__ == '__main__':
-    # main("./995.jpg")
+    main2("images", "output2")

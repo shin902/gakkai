@@ -56,7 +56,7 @@ def generate_movie(img_list, img_folder, out_folder, output_path):
 	os.makedirs(os.path.join(out_folder, img_folder), exist_ok=True)
 
 	img = cv2.imread(os.path.join(out_folder, img_list[0]))
-	h, w, channels = img.shape[:3]
+	h, w = img.shape[:2]
 	# 作成する動画
 	codec = cv2.VideoWriter_fourcc(*'mp4v')
 	#codec = cv2.VideoWriter_fourcc(*'avc1')
@@ -87,7 +87,7 @@ if __name__ == "__main__":
 
 
 	# 各変数の初期設定
-	img_folder = "images"
+	img_folder = "output2"
 	out_folder = "output"
 	output_path = img_folder + ".mp4"
 
@@ -95,18 +95,22 @@ if __name__ == "__main__":
 	# save_all_frames("input.mp4", img_folder)
 
 	img_list = sorted(glob(img_folder+"/*.jpg"))
+	print(img_list)
 	frames = len(img_list)
 
+	i = 1
 	# ノイズ除去画像を生成
 	for img_name in tqdm(img_list):
-		trainer.denoise_image(img_name, os.path.join(out_folder, img_name))
+		trainer.denoise_image(img_name, out_folder+str(i)+".jpg")
 
 		img = cv2.imread(os.path.join(out_folder, img_name))
 		enhanced = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX)
 
 		# 楕円を真円に変換
 		result, detected, (center, axes, angle) = ellipse_to_circle(enhanced)
-		cv2.imwrite("output2/{}".format(img_name), result)
+		cv2.imwrite("output3/{}".format(img_name), result)
+
+		i += 1
 
 
 
