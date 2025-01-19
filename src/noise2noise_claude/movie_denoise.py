@@ -30,28 +30,6 @@ def save_all_frames(video_path, dir_path, basename, ext='jpg'):
 		else:
 			return
 
-def move_center(img_path, out_path):
-	src_img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
-
-	# ② 画像の中心座標を求める
-	height,width  = src_img.shape[:2]
-	gy = height / 2
-	gx = width / 2
-	# print("画像の中心：y={0}, x={1}\n".format(gy, gx))
-
-	# ③ オブジェクトの重心を求める
-	object_g = np.array(np.where(src_img == 255)).mean(axis=1)
-	# print("オブジェクトの中心座標：y={0}, x={1}\n".format(object_g[0], object_g[1]))
-
-	# ④ 重心のズレを補正する
-	dy = gy - object_g[0]
-	dx = gx - object_g[1]
-	print("中心座標とのズレ: y={0}, x={1}\n".format(dy, dx))
-
-	mat_g = np.array([[1, 0, dx], [0, 1, dy]], dtype=np.float32)
-	affine_img_g = cv2.warpAffine(src_img, mat_g, (width, height))
-	cv2.imwrite(out_path, affine_img_g)
-
 
 def generate_movie(out_folder, mv_path):
 	os.makedirs(out_folder, exist_ok=True)

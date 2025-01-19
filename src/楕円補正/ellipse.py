@@ -3,6 +3,29 @@ import numpy as np
 from glob import glob
 import os
 
+def move_center(img_path, out_path):
+	src_img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+
+	# ② 画像の中心座標を求める
+	height,width  = src_img.shape[:2]
+	gy = height / 2
+	gx = width / 2
+	# print("画像の中心：y={0}, x={1}\n".format(gy, gx))
+
+	# ③ オブジェクトの重心を求める
+	object_g = np.array(np.where(src_img == 255)).mean(axis=1)
+	# print("オブジェクトの中心座標：y={0}, x={1}\n".format(object_g[0], object_g[1]))
+
+	# ④ 重心のズレを補正する
+	dy = gy - object_g[0]
+	dx = gx - object_g[1]
+	print("中心座標とのズレ: y={0}, x={1}\n".format(dy, dx))
+
+	mat_g = np.array([[1, 0, dx], [0, 1, dy]], dtype=np.float32)
+	affine_img_g = cv2.warpAffine(src_img, mat_g, (width, height))
+	cv2.imwrite(out_path, affine_img_g)
+
+
 def detect_ellipse(image):
     """
     画像から楕円を検出する関数（木星画像用に最適化）
@@ -30,8 +53,6 @@ def detect_ellipse(image):
     # 輪郭検出
     contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    print(f"検出された輪郭の数: {len(contours)}")
-
     if len(contours) > 0:
         # デバッグ用コンテナ
         debug_image = cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
@@ -58,10 +79,19 @@ def detect_ellipse(image):
     cv2.imshow('Debug Image', debug_image)
     return None, None, None
 
-def ellipse_to_circle(image):
+def ellipse_to_circle(imag_path, out_path=None):
     """
     楕円を真円に変換する関数
     """
+    image = cv2.imread(imag_path)
+    if image is None:
+        print("画像を読み込めませんでした。")
+        return
+
+    # 前処理(enhanced)
+    image = cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX)
+
+
     # 楕円検出
     center, axes, angle = detect_ellipse(image)
 
@@ -85,7 +115,7 @@ def ellipse_to_circle(image):
     center_x, center_y = center
 
     # 回転行列を生成し、スケールを適用
-    angle_corrected = angle+90  # 回転方向を反転
+    angle_corrected = -angle  # 回転方向を反転
     M_rotation = cv2.getRotationMatrix2D((center_x, center_y), angle_corrected, 1.0)
 
     # スケールをアフィン行列に組み込む
@@ -96,6 +126,9 @@ def ellipse_to_circle(image):
 
     # 変換を適用
     transformed = cv2.warpAffine(image, M_rotation, (width, height), flags=cv2.INTER_CUBIC)
+
+    if out_path:
+        cv2.imwrite(out_path, transformed)
 
     return transformed, visualization, (center, axes, angle)
 
@@ -122,38 +155,11 @@ def draw_detected_shapes(image, center, axes, angle, color=(0, 255, 0), thicknes
 
     return image_with_shape
 
-def main(img_path, out_path):
-    # 画像の読み込み
-    image = cv2.imread(img_path)
-
-    if image is None:
-        print("画像を読み込めませんでした。")
-        return
-
-    # 前処理
-    enhanced = cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX)
-
-    # 楕円を真円に変換
-    result, detected, (center, axes, angle) = ellipse_to_circle(enhanced)
-    """
-    if center is not None:
-        # 結果の表示
-        cv2.imshow('Original', image)
-        cv2.imshow('Detected', detected)
-        cv2.imshow('Result', result)
-    """
-    cv2.imwrite(out_path, result)
-    """
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-    """
-def main2(img_dir, out_dir):
-    img_list = sorted(glob(img_dir+"/*.jpg"))
-    print(img_list)
-    for i, img_path in enumerate(img_list):
-        main(img_path, os.path.join(out_dir, str(i)+".jpg"))
-        print(i)
 
 
 if __name__ == '__main__':
-    main2("images", "output2")
+    cd = "../../Resources/"
+    input_path = cd + "Input and Output/output/1000-1000.jpg"
+    output_path = cd + "Input and Output/output/affinea.bmp"
+
+    ellipse_to_circle(input_path, output_path)
