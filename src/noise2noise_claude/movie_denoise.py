@@ -5,7 +5,8 @@ import os
 from tqdm import tqdm
 from glob import glob
 import numpy as np
-from ellipse import ellipse_to_circle
+
+cd = "../../Resources/"
 
 
 def save_all_frames(video_path, dir_path, basename, ext='jpg'):
@@ -52,15 +53,17 @@ def move_center(img_path, out_path):
 	cv2.imwrite(out_path, affine_img_g)
 
 
-def generate_movie(img_list, img_folder, out_folder, output_path):
-	os.makedirs(os.path.join(out_folder, img_folder), exist_ok=True)
+def generate_movie(out_folder, mv_path):
+	os.makedirs(out_folder, exist_ok=True)
 
-	img = cv2.imread(os.path.join(out_folder, img_list[0]))
+	img_list = sorted(glob(out_folder+"/*.jpg"))
+
+	img = cv2.imread(img_list[0])
 	h, w = img.shape[:2]
 	# 作成する動画
 	codec = cv2.VideoWriter_fourcc(*'mp4v')
 	#codec = cv2.VideoWriter_fourcc(*'avc1')
-	writer = cv2.VideoWriter(output_path, codec, 30000/1001, (w, h),1)
+	writer = cv2.VideoWriter(mv_path, codec, 30000/1001, (w, h),1)
 
 	bar = tqdm(total=frames, dynamic_ncols=True)
 	for f in tqdm(img_list):
@@ -78,42 +81,34 @@ if __name__ == "__main__":
 	device = torch.device("mps" if torch.mps.is_available() else "cpu")
 
 	trainer = Noise2Noise(
-		train_dir="train_data",
-		valid_dir="valid_data",
-		model_dir="model_dir",
+		train_dir=cd + "AI/train_data",
+		valid_dir=cd + "AI/valid_data",
+		model_dir=cd + "AI/model_dir",
 		device=device
 	)
 	trainer.load_model('best_model.pth')
 
 
 	# 各変数の初期設定
-	img_folder = "output2"
-	out_folder = "output"
-	output_path = img_folder + ".mp4"
+	img_folder = cd + "Input and Output/Images"
+	out_folder = cd + "Input and Output/output_mv"
+	output_path = os.path.join(out_folder, "output.mp4")
+	os.makedirs(out_folder, exist_ok=True)
 
 	# 動画から連番画像を生成する
 	# save_all_frames("input.mp4", img_folder)
 
 	img_list = sorted(glob(img_folder+"/*.jpg"))
-	print(img_list)
 	frames = len(img_list)
 
 	i = 1
 	# ノイズ除去画像を生成
 	for img_name in tqdm(img_list):
-		trainer.denoise_image(img_name, out_folder+str(i)+".jpg")
-
-		img = cv2.imread(os.path.join(out_folder, img_name))
-		enhanced = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX)
-
-		# 楕円を真円に変換
-		result, detected, (center, axes, angle) = ellipse_to_circle(enhanced)
-		cv2.imwrite("output3/{}".format(img_name), result)
-
+		trainer.denoise_image(img_name, os.path.join(out_folder, str(i)+".jpg"))
 		i += 1
 
 
 
 
 	# 動画を生成
-	generate_movie(img_list, img_folder, out_folder, output_path)
+	generate_movie(out_folder, output_path)

@@ -102,51 +102,56 @@ class UNet(nn.Module):
 
 
 class NoisyDataset(Dataset):
-	def __init__(self, root_dir, transform=None):
-		self.root_dir = Path(root_dir)
-		self.transform = transform
-		self.image_pairs = []
+    def __init__(self, root_dir, transform=None):
+        self.root_dir = Path(root_dir)
+        # 基本的な変換を定義（ToTensorとNormalize）
+        self.transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5, 0.5, 0.5],  # RGB各チャンネルの平均
+                              std=[0.5, 0.5, 0.5])     # RGB各チャンネルの標準偏差
+        ])
+        self.custom_transform = transform  # 追加の変換が必要な場合用
+        self.image_pairs = []
 
-		# Find all image pairs
-		if not self.root_dir.exists():
-			raise FileNotFoundError(f"Directory {root_dir} not found")
+        # Find all image pairs
+        if not self.root_dir.exists():
+            raise FileNotFoundError(f"Directory {root_dir} not found")
 
-		# Initialize image pairs
-		for folder in self.root_dir.iterdir():
-			if folder.is_dir():
-				noisy_images = list(folder.glob('*.jpg'))
-				if len(noisy_images) >= 2:
-					self.image_pairs.append((noisy_images[0], noisy_images[1]))
+        # Initialize image pairs
+        for folder in self.root_dir.iterdir():
+            if folder.is_dir():
+                noisy_images = list(folder.glob('*.jpg'))
+                if len(noisy_images) >= 2:
+                    self.image_pairs.append((noisy_images[0], noisy_images[1]))
 
-	def __len__(self):
-		return len(self.image_pairs)
+    def __len__(self):
+        return len(self.image_pairs)
 
-	def __getitem__(self, idx):
-		if idx >= len(self.image_pairs):
-			raise IndexError("Index out of bounds")
+    def __getitem__(self, idx):
+        if idx >= len(self.image_pairs):
+            raise IndexError("Index out of bounds")
 
-		img1_path, img2_path = self.image_pairs[idx]
+        img1_path, img2_path = self.image_pairs[idx]
 
-		# Load and convert images
-		input_img = Image.open(str(img1_path)).convert('RGB')
-		target_img = Image.open(str(img2_path)).convert('RGB')
+        # Load and convert images
+        input_img = Image.open(str(img1_path)).convert('RGB')
+        target_img = Image.open(str(img2_path)).convert('RGB')
 
-		# Resize images
-		size = (780, 972)
-		input_img = input_img.resize(size, Image.BILINEAR)
-		target_img = target_img.resize(size, Image.BILINEAR)
+        # Resize images
+        size = (780, 972)
+        input_img = input_img.resize(size, Image.BILINEAR)
+        target_img = target_img.resize(size, Image.BILINEAR)
 
-		# Convert to tensors
-		to_tensor = transforms.ToTensor()
-		input_tensor = to_tensor(input_img)
-		target_tensor = to_tensor(target_img)
+        # 基本的な変換を適用（ToTensorとNormalize）
+        input_tensor = self.transform(input_img)
+        target_tensor = self.transform(target_img)
 
-		# Apply additional transforms if specified
-		if self.transform:
-			input_tensor = self.transform(input_tensor)
-			target_tensor = self.transform(target_tensor)
+        # 追加の変換がある場合は適用
+        if self.custom_transform:
+            input_tensor = self.custom_transform(input_tensor)
+            target_tensor = self.custom_transform(target_tensor)
 
-		return input_tensor, target_tensor
+        return input_tensor, target_tensor
 
 # Training class
 class Noise2Noise:
@@ -263,7 +268,6 @@ class Noise2Noise:
 		# テンソルを画像に変換して保存
 		output_img = transforms.ToPILImage()(output.squeeze(0).cpu())
 		output_img.save(output_path)
-
 # Example usage
 if __name__ == "__main__":
 	# Setup device
