@@ -1,6 +1,59 @@
 import cv2
 import numpy as np
 
+def detect_ellipse(image):
+    """
+    画像から楕円を検出する関数（木星画像用に最適化）
+    """
+    # 画像の前処理
+    if len(image.shape) == 3:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = image.copy()
+
+    # コントラストの強調
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+    enhanced = clahe.apply(gray)
+
+    # ノイズ除去
+    blurred = cv2.GaussianBlur(enhanced, (7, 7), 0)
+
+    # 2値化
+    _, binary = cv2.threshold(blurred, 30, 255, cv2.THRESH_BINARY)
+
+    # モルフォロジー処理
+    kernel = np.ones((5,5), np.uint8)
+    binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+
+    # 輪郭検出
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    if len(contours) > 0:
+        # デバッグ用コンテナ
+        debug_image = cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
+
+        # 最大の輪郭を見つける
+        largest_contour = max(contours, key=cv2.contourArea)
+
+        if len(largest_contour) >= 5:
+            try:
+                # 楕円フィッティング
+                ellipse = cv2.fitEllipse(largest_contour)
+                center = ellipse[0]
+                axes = ellipse[1]
+                angle = ellipse[2]
+
+                return center, axes, angle
+
+            except Exception as e:
+                print(f"楕円フィッティングエラー: {str(e)}")
+        else:
+            print(f"輪郭の点数が不足しています（{len(largest_contour)} < 5点）")
+
+    # デバッグ画像を表示
+    cv2.imshow('Debug Image', debug_image)
+    return None, None, None
+
 def ellipse_to_circle(image_path, out_path=None):
     """
     楕円を真円に変換する関数（行列計算を修正）
@@ -19,9 +72,6 @@ def ellipse_to_circle(image_path, out_path=None):
     if center is None:
         print("楕円検出に失敗しました")
         return image, image, (None, None, None)
-
-    # 検出された楕円の可視化
-    visualization = draw_detected_shapes(image.copy(), center, axes, angle)
 
     # 楕円の軸
     major_axis, minor_axis = axes
@@ -83,7 +133,7 @@ def ellipse_to_circle(image_path, out_path=None):
 
 if __name__ == '__main__':
     cd = "../../Resources/"
-    input_path = cd + "Input and Output/output/1000-1000.jpg"
-    output_path = cd + "Input and Output/output/affine2.jpg"
+    input_path = cd + "Input and Output/input/S__31277060.jpg"
+    output_path = cd + "Input and Output/output/S__31277060_d.jpg"
 
     ellipse_to_circle(input_path, output_path)

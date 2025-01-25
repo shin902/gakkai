@@ -275,15 +275,15 @@ if __name__ == "__main__":
 
 	# Initialize trainer
 	trainer = Noise2Noise(
-		train_dir="train_data",
-		valid_dir="valid_data",
-		model_dir="model_dir",
+		train_dir="../../Resources/AI/train_data",
+		valid_dir="../../Resources/AI/valid_data",
+		model_dir="../../Resources/AI/model_dir",
 		device=device
 	)
 
 	# Train model
-	trainer.train(epochs=1000)
-	# trainer.load_model('bright_model.pth')
+	# trainer.train(epochs=1000)
+	trainer.load_model('best_model.pth')
 
 	# Denoise a single image
-	trainer.denoise_image("./input/S__31277060.jpg", "output/S__31277060.jpg")
+	trainer.denoise_image("../../Resources/Input and Output/output/S__31277060_d.jpg", "../../Resources/Input and Output/output/S__31277060_da.jpg")
