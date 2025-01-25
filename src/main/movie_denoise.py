@@ -5,13 +5,13 @@ import numpy as np
 from glob import glob
 import os
 import sys
-from noise2noise import Noise2Noise
+from Modules.noise2noise import Noise2Noise
 
 
 module_dir = os.path.abspath("../")
 sys.path.append(module_dir)
 
-from generate_movie import generate_movie
+from Modules.generate_movie import generate_movie
 
 resources = "../../Resources/"
 ai = resources + "AI/"
