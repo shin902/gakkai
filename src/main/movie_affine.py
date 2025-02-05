@@ -5,9 +5,8 @@ import os
 from tqdm import tqdm
 
 if __name__ == '__main__':
-    cd = "../../Resources/"
     input_dir = "../../Resources/Images/19_57_44/"
-    output_dir = cd + "Input and Output/affine2"
+    output_dir = "../../Resources/Input and Output/affine2"
     os.makedirs(output_dir, exist_ok=True)
 
 

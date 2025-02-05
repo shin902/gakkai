@@ -13,8 +13,6 @@ sys.path.append(module_dir)
 
 from Modules.generate_movie import generate_movie
 
-resources = "../../Resources/"
-ai = resources + "AI/"
 
 
 def save_all_frames(video_path, dir_path, basename, ext='jpg'):
@@ -43,18 +41,18 @@ if __name__ == "__main__":
     device = torch.device("mps" if torch.mps.is_available() else "cpu")
 
     trainer = Noise2Noise(
-        train_dir = ai+"train_data",
-        valid_dir = ai+"valid_data",
-        model_dir = ai+"model_dir",
+        train_dir = "../../Resources/AI/train_data",
+        valid_dir = "../../Resources/AI/valid_data",
+        model_dir = "../../Resources/AI/model_dir",
         device=device
     )
     trainer.load_model('best_model.pth')
 
 
     # 各変数の初期設定
-    img_folder = resources + "Input and Output/affine"
-    out_folder = resources + "Input and Output/denoise"
-    movie_path = resources + "Input and Output/affine_and_denoise.mp4"
+    img_folder = "../../Resources/Input and Output/affine"
+    out_folder = "../../Resources/Input and Output/denoise"
+    movie_path = "../../Resources/Input and Output/affine_and_denoise.mp4"
     os.makedirs(out_folder, exist_ok=True)
 
     # 動画から連番画像を生成する

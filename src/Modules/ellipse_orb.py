@@ -161,9 +161,8 @@ def visualize_matching(image_path):
     cv2.destroyAllWindows()
 
 if __name__ == '__main__':
-    cd = "../../Resources/"
-    input_path = cd + "Input and Output/input/S__31277060.jpg"
-    output_path = cd + "Input and Output/output/S__31277060_d.jpg"
+    input_path = "../../Resources/Input and Output/input/S__31277060.jpg"
+    output_path = "../../Resources/Input and Output/output/S__31277060_d.jpg"
 
     # 楕円から円への変換
     ellipse_to_circle(input_path, output_path)
