@@ -5,7 +5,6 @@ import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from PIL import Image
-import os
 from pathlib import Path
 
 
@@ -108,7 +107,7 @@ class NoisyDataset(Dataset):
         self.transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.5, 0.5, 0.5],  # RGB各チャンネルの平均
-                              std=[0.5, 0.5, 0.5])     # RGB各チャンネルの標準偏差
+                                 std=[0.5, 0.5, 0.5])     # RGB各チャンネルの標準偏差
         ])
         self.custom_transform = transform  # 追加の変換が必要な場合用
         self.image_pairs = []
@@ -268,6 +267,12 @@ class Noise2Noise:
 		# テンソルを画像に変換して保存
 		output_img = transforms.ToPILImage()(output.squeeze(0).cpu())
 		output_img.save(output_path)
+
+
+
+
+
+
 # Example usage
 if __name__ == "__main__":
 	# Setup device
