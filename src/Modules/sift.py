@@ -69,27 +69,25 @@ class ImageAligner:
             # ホモグラフィー行列を計算
             H, _ = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 5.0)
 
-            if H is not None:
-                # 画像を変形
-                h, w = original_image1.shape[:2]  # 基準画像のサイズを取得
+                if H is not None:
+                    inlier_count = np.sum(inlier_mask)
+                    if inlier_count > len(src_pts) * 0.35:
+                        h, w = original_image1.shape[:2]
+                        warped_image = cv.warpPerspective(
+                            original_image2,
+                            H,
+                            (w, h),
+                            flags=cv.INTER_LINEAR,
+                            borderMode=cv.BORDER_REPLICATE
+                        )
+                        print("変換後のコーナー座標:")
+                        # ここで配列を32ビット浮動小数点数に変換
+                        transformed_corners = cv.perspectiveTransform(np.array([[[0, 0], [0, h], [w, h], [w, 0]]], dtype=np.float32), H)
+                        return warped_image, H
+                    else:
+                        raise ValueError(f"信頼できるインライアが不足しています: {inlier_count}/{len(src_pts)}")
 
-                # 変換を適用（追加のパラメータを使用）
-                warped_image = cv.warpPerspective(
-                    original_image2,  # 変換する画像
-                    H,               # 変換行列
-                    (w, h),         # 出力サイズ
-                    flags=cv.INTER_LINEAR,  # 補間方法
-                    borderMode=cv.BORDER_CONSTANT,  # 境界の扱い
-                    borderValue=(0,0,0)    # 境界の色
-                )
-
-                return warped_image, H
-            else:
-                raise ValueError("ホモグラフィー行列の計算に失敗しました。")
-        else:
-            raise ValueError("十分なマッチが見つかりませんでした。")
-
-        return None, None
+        raise ValueError(f"アライメントに失敗しました。マッチ数: {len(matches)}")
 
 class ImageDenoiser:
     def __init__(self):
@@ -143,9 +141,9 @@ if __name__ == "__main__":
 
     aligner = ImageAligner()
 
-    _, des1 = aligner.get_kp(masked_image1)
-    _, des2 = aligner.get_kp(masked_image2)
-    print(len(aligner.match_kp(des1, des2)))
+    kp1, des1 = aligner.get_kp(masked_image1)
+    kp2, des2 = aligner.get_kp(masked_image2)
+    print(len(aligner.match_kp(kp1, kp2, des1, des2)))  # kp1, kp2を追加
     # 画像アライメント
     warped_image, _ = aligner.align_images(image1, image2, masked_image1, masked_image2)
 
