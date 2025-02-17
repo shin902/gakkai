@@ -18,12 +18,12 @@ class HSVImage:
             生成されたマスク画像
         """
         # デフォルト値の設定
-        hsv_lower = np.array(hsv_lower or (1, 0, 0))
-        hsv_upper = np.array(hsv_upper or (30, 255, 255))
+        hsv_lower = (1, 0, 0) if hsv_lower is None else hsv_lower
+        hsv_upper = (30, 255, 255) if hsv_upper is None else hsv_upper
 
         # マスクの生成
-        self.mask = cv2.inRange(self.hsv_image, hsv_lower, hsv_upper)
-        return self.mask
+        self._mask = cv2.inRange(self._hsv_image, hsv_lower, hsv_upper)
+        return self._mask
 
     def make_masked_image(self, mask=None):
         """
@@ -36,18 +36,18 @@ class HSVImage:
             マスク適用後の画像
         """
         if mask is None:
-            if self.mask is None:
+            if self._mask is None:
                 raise ValueError("マスクが生成されていません。get_mask()を先に実行してください。")
-            mask = self.mask
+            mask = self._mask
 
-        self.masked_image = cv2.bitwise_and(self.original_image, self.original_image, mask=mask)
-        return self.masked_image
+        self._masked_image = cv2.bitwise_and(self._original_image, self._original_image, mask=mask)
+        return self._masked_image
 
     def reset(self):
         """
         画像を初期状態にリセット
         """
-        self.hsv_image = cv2.cvtColor(self.original_image, cv2.COLOR_BGR2HSV)
+        self.hsv_image = cv2.cvtColor(self._original_image, cv2.COLOR_BGR2HSV)
         self.mask = None
         self.masked_image = None
 
