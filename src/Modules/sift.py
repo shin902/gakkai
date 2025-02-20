@@ -69,25 +69,16 @@ class ImageAligner:
             # ホモグラフィー行列を計算
             H, _ = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 5.0)
 
-                if H is not None:
-                    inlier_count = np.sum(inlier_mask)
-                    if inlier_count > len(src_pts) * 0.35:
-                        h, w = original_image1.shape[:2]
-                        warped_image = cv.warpPerspective(
-                            original_image2,
-                            H,
-                            (w, h),
-                            flags=cv.INTER_LINEAR,
-                            borderMode=cv.BORDER_REPLICATE
-                        )
-                        print("変換後のコーナー座標:")
-                        # ここで配列を32ビット浮動小数点数に変換
-                        transformed_corners = cv.perspectiveTransform(np.array([[[0, 0], [0, h], [w, h], [w, 0]]], dtype=np.float32), H)
-                        return warped_image, H
-                    else:
-                        raise ValueError(f"信頼できるインライアが不足しています: {inlier_count}/{len(src_pts)}")
+            if H is not None:
+                # 画像を変形
+                h, w = original_image1.shape[:2]
+                warped_image = cv.warpPerspective(original_image2, H, (w, h))
+                return warped_image, H
+            else:
+                raise ValueError("ホモグラフィー行列の計算に失敗しました。")
+        else:
+            raise ValueError("十分なマッチが見つかりませんでした。")
 
-        raise ValueError(f"アライメントに失敗しました。マッチ数: {len(matches)}")
 
 class ImageDenoiser:
     def __init__(self):
