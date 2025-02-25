@@ -54,10 +54,16 @@ def calculate_sharpness(image):
 
 
 if __name__ == "__main__":
-    image_path1 = 'Resources/Images/19_57_44/001.jpg'
-    image_path2 = 'Resources/Images/19_57_44/002.jpg'
+    image_path1 = '../../../Resources/Images/19_57_44/001.jpg'
+    image_path2 = '../../../Resources/Images/19_57_44/002.jpg'
+
     image1 = cv2.imread(image_path1)
     image2 = cv2.imread(image_path2)
+
+    if image1 is None:
+        raise "Error: 画像 '001.jpg' の読み込みに失敗しました。パスを確認してください。"
+    if image2 is None:
+        raise "Error: 画像 '002.jpg' の読み込みに失敗しました。パスを確認してください。"
 
     sharpness1 = calculate_sharpness(image1)
     sharpness2 = calculate_sharpness(image2)
@@ -87,7 +93,7 @@ if __name__ == "__main__":
 
     agent = AffineCorrectionAgent()
     # Increased learning rate to 0.01
-    optimizer = optim.Adam(agent.parameters(), lr=0.01)
+    optimizer = optim.Adam(agent.parameters(), lr=0.005)
 
     epochs = 100
     for epoch in range(epochs):
@@ -112,5 +118,5 @@ if __name__ == "__main__":
             f"Epoch {epoch + 1}/{epochs}, Reward: {reward:.4f}, Loss: {loss.item():.4f}")
 
     print("Reinforcement Learning training finished.")
-    cv2.imwrite('Resources/transformed_image.jpg', transformed_image)
+    cv2.imwrite('../../../Resources/transformed_image.jpg', transformed_image)
     print("Transformed image saved as Resources/transformed_image.jpg")
