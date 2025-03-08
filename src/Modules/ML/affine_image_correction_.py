@@ -53,17 +53,14 @@ def calculate_sharpness(image):
     return sharpness
 
 
-if __name__ == "__main__":
-    image_path1 = '../../../Resources/Images/19_57_44/001.jpg'
-    image_path2 = '../../../Resources/Images/19_57_44/002.jpg'
-
+def load_and_compare_sharpness(image_path1, image_path2):
     image1 = cv2.imread(image_path1)
     image2 = cv2.imread(image_path2)
 
     if image1 is None:
-        raise "Error: 画像 '001.jpg' の読み込みに失敗しました。パスを確認してください。"
+        raise ValueError(f"Error: 画像 '{image_path1}' の読み込みに失敗しました。パスを確認してください。")
     if image2 is None:
-        raise "Error: 画像 '002.jpg' の読み込みに失敗しました。パスを確認してください。"
+        raise ValueError(f"Error: 画像 '{image_path2}' の読み込みに失敗しました。パスを確認してください。")
 
     sharpness1 = calculate_sharpness(image1)
     sharpness2 = calculate_sharpness(image2)
@@ -88,16 +85,15 @@ if __name__ == "__main__":
     print(
         f"Less sharp image: {to_correct_image_path} (Sharpness: {sharpness_to_correct:.2f})")
 
+    return sharper_image, to_correct_image, sharper_image_path, to_correct_image_path
+
+def train_affine_correction_agent(sharper_image, image_to_correct):
     original_image = sharper_image
-    image_to_correct = to_correct_image
-
     agent = AffineCorrectionAgent()
-    # Increased learning rate to 0.01
-    optimizer = optim.Adam(agent.parameters(), lr=0.005)
+    optimizer = optim.Adam(agent.parameters(), lr=0.005) # Increased learning rate to 0.005
 
-    epochs = 100
+    epochs = 1
     for epoch in range(epochs):
-        # Sample random affine parameters (replace with agent's a ction)
         initial_params = torch.rand(6) * 2 - 1  # Random params between -1 and 1
         resized_image_to_correct = cv2.resize(
             image_to_correct, (128, 128))  # Resize image
@@ -107,16 +103,30 @@ if __name__ == "__main__":
         transformed_image = apply_affine_transform(
             image_to_correct, predicted_params.detach().numpy())
         reward = calculate_similarity_reward(original_image, transformed_image)
-        # Convert reward to tensor
         reward_tensor = torch.tensor(
-            reward, dtype=torch.float32, requires_grad=True)
+            reward, dtype=torch.float32, requires_grad=True) # Convert reward to tensor
         loss = -reward_tensor
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         print(
             f"Epoch {epoch + 1}/{epochs}, Reward: {reward:.4f}, Loss: {loss.item():.4f}")
-
     print("Reinforcement Learning training finished.")
-    cv2.imwrite('../../../Resources/transformed_image.jpg', transformed_image)
-    print("Transformed image saved as Resources/transformed_image.jpg")
+    return transformed_image
+
+
+
+def main():
+    image_path1 = '../../../Resources/Images/19_57_44/001.jpg'
+    image_path2 = '../../../Resources/Images/19_57_44/005.jpg'
+    save_path = '../../../Resources/transformed_image.jpg'
+    sharper_image, to_correct_image, _, _ = load_and_compare_sharpness(image_path1, image_path2)
+    transformed_image = train_affine_correction_agent(sharper_image, to_correct_image)
+
+    cv2.imwrite(save_path, transformed_image)
+    print(f"Transformed image saved as {save_path}")
+
+
+
+if __name__ == "__main__":
+    main()

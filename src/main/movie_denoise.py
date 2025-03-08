@@ -1,7 +1,6 @@
 import torch
 import cv2
 from tqdm import tqdm
-import numpy as np
 from glob import glob
 import os
 import sys
