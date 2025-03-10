@@ -92,7 +92,7 @@ def train_affine_correction_agent(sharper_image, image_to_correct):
     agent = AffineCorrectionAgent()
     optimizer = optim.Adam(agent.parameters(), lr=0.005) # Increased learning rate to 0.005
 
-    epochs = 1
+    epochs = 100
     for epoch in range(epochs):
         initial_params = torch.rand(6) * 2 - 1  # Random params between -1 and 1
         resized_image_to_correct = cv2.resize(
@@ -108,6 +108,10 @@ def train_affine_correction_agent(sharper_image, image_to_correct):
         loss = -reward_tensor
         optimizer.zero_grad()
         loss.backward()
+        for name, param in agent.named_parameters():
+            if 'fc1.weight' in name: # 例として最初の全結合層の重み
+                print(f"Layer: {name}, Gradient Norm: {param.grad.norm()}")
+
         optimizer.step()
         print(
             f"Epoch {epoch + 1}/{epochs}, Reward: {reward:.4f}, Loss: {loss.item():.4f}")
