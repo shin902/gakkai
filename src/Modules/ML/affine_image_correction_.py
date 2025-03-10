@@ -12,21 +12,29 @@ class AffineCorrectionAgent(nn.Module):
         super(AffineCorrectionAgent, self).__init__()
         # カラー画像用に入力サイズを128*128*3に変更
         self.fc1 = nn.Linear(128 * 128 * 3, 128)  # 128ユニットの隠れ層
+        self.bn1 = nn.BatchNorm1d(128)  # バッチ正規化を追加
         self.fc2 = nn.Linear(128, 6)  # 出力層
+
+        # 重みとバイアスの初期化を改善
+        nn.init.kaiming_normal_(self.fc1.weight)  # He初期化
+        nn.init.constant_(self.fc1.bias, 0.01)
+        nn.init.kaiming_normal_(self.fc2.weight)  # He初期化
+        nn.init.uniform_(self.fc2.bias, -0.1, 0.1)  # バイアスを均一分布で初期化
 
     def forward(self, state):
         # view()の代わりにreshape()を使用し、連続していないメモリレイアウトも処理できるようにする
         state = state.reshape(-1)  # 入力を平坦化
-        hidden = F.relu(self.fc1(state))  # 隠れ層にReLU活性化関数を適用
-        affine_params = torch.tanh(self.fc2(hidden))  # 出力層にtanh活性化関数を適用
+        hidden = F.leaky_relu(self.bn1(self.fc1(state)), negative_slope=0.1)  # LeakyReLUとバッチ正規化
+        # 出力層にはLeaky ReLUを使用し、後でスケーリング
+        raw_params = F.leaky_relu(self.fc2(hidden), negative_slope=0.1)
 
         # パラメータを適切な範囲にスケーリング
-        tx = affine_params[0] * 100  # x方向の平行移動
-        ty = affine_params[1] * 100  # y方向の平行移動
-        shear_x = affine_params[2] * 0.5  # x方向のせん断
-        shear_y = affine_params[3] * 0.5  # y方向のせん断
-        scale_x = affine_params[4] * 0.5 + 1  # x方向のスケール (1〜1.5)
-        scale_y = affine_params[5] * 0.5 + 1  # y方向のスケール (1〜1.5)
+        tx = raw_params[0] * 100  # x方向の平行移動
+        ty = raw_params[1] * 100  # y方向の平行移動
+        shear_x = raw_params[2] * 0.5  # x方向のせん断
+        shear_y = raw_params[3] * 0.5  # y方向のせん断
+        scale_x = raw_params[4] * 0.5 + 1  # x方向のスケール (1〜1.5)
+        scale_y = raw_params[5] * 0.5 + 1  # y方向のスケール (1〜1.5)
 
         return torch.stack([tx, ty, shear_x, shear_y, scale_x, scale_y])
 
@@ -73,10 +81,24 @@ def differentiable_affine_transform(image_tensor, params):
 
 def calculate_similarity_loss(original_tensor, transformed_tensor):
     """
-    元画像と変換後画像のテンソル間のMSE損失を計算
+    元画像と変換後画像のテンソル間の損失を計算（MSEとSSIMの組み合わせ）
     """
-    mse_loss = nn.MSELoss()
-    return mse_loss(transformed_tensor, original_tensor)
+    # MSE損失
+    mse_loss = nn.MSELoss()(transformed_tensor, original_tensor)
+
+    # SSIMを使用した類似度損失（PyTorchテンソルをNumPy配列に変換）
+    original_np = original_tensor.detach().cpu().numpy().transpose(1, 2, 0)
+    transformed_np = transformed_tensor.detach().cpu().numpy().transpose(1, 2, 0)
+
+    # SSIMの計算（0〜1の値、1が完全に同じ）
+    ssim_value = ssim(original_np, transformed_np, data_range=1.0, multichannel=True)
+    # SSIMベースの損失（1-SSIM）を計算して小さくすべき値に
+    ssim_loss = 1.0 - ssim_value
+
+    # 損失の組み合わせ（重み付け）
+    combined_loss = 0.7 * mse_loss + 0.3 * ssim_loss
+
+    return combined_loss
 
 
 def calculate_sharpness(image):
@@ -137,14 +159,19 @@ def train_affine_correction_agent(sharper_image, image_to_correct):
 
     # モデルとオプティマイザを初期化
     agent = AffineCorrectionAgent()
-    optimizer = optim.Adam(agent.parameters(), lr=0.001)
+    optimizer = optim.Adam(agent.parameters(), lr=0.001, weight_decay=1e-5)  # 軽いL2正則化を追加
+
+    # 学習率スケジューラを設定
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=10, verbose=True)
 
     # 最良の結果を追跡
     best_loss = float('inf')
     best_params = None
+    patience = 20  # 早期停止のためのパラメータ
+    patience_counter = 0
 
     # 学習ループ
-    epochs = 100
+    epochs = 200  # エポック数を増やす
     for epoch in range(epochs):
         optimizer.zero_grad()
 
@@ -154,11 +181,14 @@ def train_affine_correction_agent(sharper_image, image_to_correct):
         # 変換を適用（微分可能な関数を使用）
         transformed_tensor = differentiable_affine_transform(to_correct_tensor, params)
 
-        # 損失を計算（MSEを最小化）
+        # 損失を計算（改良版損失関数を使用）
         loss = calculate_similarity_loss(sharper_tensor, transformed_tensor)
 
         # バックプロパゲーション
         loss.backward()
+
+        # 勾配クリッピングを適用
+        torch.nn.utils.clip_grad_norm_(agent.parameters(), max_norm=1.0)
 
         # デバッグ用にグラディエント情報を表示
         for name, param in agent.named_parameters():
@@ -174,12 +204,23 @@ def train_affine_correction_agent(sharper_image, image_to_correct):
         # 重みを更新
         optimizer.step()
 
+        # 学習率を調整
+        scheduler.step(loss)
+
         print(f"エポック {epoch + 1}/{epochs}, 損失: {loss.item():.6f}")
 
         # 最良のパラメータを保存
         if loss.item() < best_loss:
             best_loss = loss.item()
             best_params = params.detach().cpu().numpy()
+            patience_counter = 0
+        else:
+            patience_counter += 1
+
+        # 早期停止
+        if patience_counter >= patience:
+            print(f"損失が{patience}エポック間改善しなかったため早期停止します。")
+            break
 
     print("学習完了")
 
