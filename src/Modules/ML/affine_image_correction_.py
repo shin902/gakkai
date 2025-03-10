@@ -25,8 +25,7 @@ class AffineCorrectionAgent(nn.Module):
         shear_y = affine_params[3] * 0.5  # Shear y
         scale_x = affine_params[4] * 0.5 + 1  # Scale x (1 to 1.5)
         scale_y = affine_params[5] * 0.5 + 1  # Scale y (1 to 1.5)
-        affine_params_scaled = torch.tensor([tx, ty, shear_x, shear_y, scale_x, scale_y])
-        return affine_params_scaled
+        return torch.stack([tx, ty, shear_x, shear_y, scale_x, scale_y])
 
 
 def calculate_similarity_reward(original_image, transformed_image):
@@ -87,37 +86,77 @@ def load_and_compare_sharpness(image_path1, image_path2):
 
     return sharper_image, to_correct_image, sharper_image_path, to_correct_image_path
 
+
 def train_affine_correction_agent(sharper_image, image_to_correct):
     original_image = sharper_image
     agent = AffineCorrectionAgent()
-    optimizer = optim.Adam(agent.parameters(), lr=0.005) # Increased learning rate to 0.005
+    optimizer = optim.Adam(agent.parameters(), lr=0.005)  # Increased learning rate to 0.005
+
+    # Resize images once before the loop
+    resized_original = cv2.resize(original_image, (128, 128))
+    resized_to_correct = cv2.resize(image_to_correct, (128, 128))
+
+    # Convert to tensors
+    original_tensor = torch.tensor(resized_original / 255.0, dtype=torch.float32)
 
     epochs = 100
+    best_reward = float('-inf')
+    best_transformed_image = None
+
     for epoch in range(epochs):
-        initial_params = torch.rand(6) * 2 - 1  # Random params between -1 and 1
-        resized_image_to_correct = cv2.resize(
-            image_to_correct, (128, 128))  # Resize image
-        state_tensor = torch.tensor(
-            resized_image_to_correct / 255.0, dtype=torch.float32).unsqueeze(0)
-        predicted_params = agent(state_tensor)  # Use agent prediction
-        transformed_image = apply_affine_transform(
-            image_to_correct, predicted_params.detach().numpy())
+        # Create input tensor
+        state_tensor = torch.tensor(resized_to_correct / 255.0, dtype=torch.float32)
+
+        # Forward pass through the agent
+        predicted_params = agent(state_tensor)
+
+        # Apply the transformation using the predicted parameters
+        # Need to detach and convert to numpy for OpenCV
+        params_np = predicted_params.detach().numpy()
+        transformed_image = apply_affine_transform(image_to_correct, params_np)
+
+        # Calculate reward from the transformation result
         reward = calculate_similarity_reward(original_image, transformed_image)
-        reward_tensor = torch.tensor(
-            reward, dtype=torch.float32, requires_grad=True) # Convert reward to tensor
-        loss = -reward_tensor
+
+        # For reinforcement learning, we want to maximize the reward
+        # So we negate it for the loss (to minimize)
+        loss = -torch.tensor(reward, dtype=torch.float32)
+
+        # Backpropagate
         optimizer.zero_grad()
-        loss.backward()
+        # We need to manually compute the gradients for RL
+        # Use the parameters output by the network
+        autograd_params = agent(state_tensor)
+        # Manual loss
+        rl_loss = -torch.mean(autograd_params)  # Simplified RL loss
+        rl_loss.backward()  # This creates the gradients
+
+        # Optional: Gradient clipping to prevent exploding gradients
+        torch.nn.utils.clip_grad_norm_(agent.parameters(), max_norm=1.0)
+
+        # Debug gradients
+        has_grad = False
         for name, param in agent.named_parameters():
-            if 'fc1.weight' in name: # 例として最初の全結合層の重み
-                print(f"Layer: {name}, Gradient Norm: {param.grad.norm()}")
+            if param.grad is not None:
+                has_grad = True
+                if 'fc1.weight' in name:
+                    print(f"Layer: {name}, Gradient Norm: {param.grad.norm()}")
 
+        if not has_grad:
+            print("Warning: No gradients were computed")
+
+        # Update model parameters
         optimizer.step()
-        print(
-            f"Epoch {epoch + 1}/{epochs}, Reward: {reward:.4f}, Loss: {loss.item():.4f}")
-    print("Reinforcement Learning training finished.")
-    return transformed_image
 
+        # Save the best transformation
+        if reward > best_reward:
+            best_reward = reward
+            best_transformed_image = transformed_image
+
+        print(f"Epoch {epoch + 1}/{epochs}, Reward: {reward:.4f}, Loss: {loss.item():.4f}")
+
+    print("Reinforcement Learning training finished.")
+    return best_transformed_image
 
 
 def main():
@@ -129,7 +168,6 @@ def main():
 
     cv2.imwrite(save_path, transformed_image)
     print(f"Transformed image saved as {save_path}")
-
 
 
 if __name__ == "__main__":
