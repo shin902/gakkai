@@ -15,7 +15,8 @@ class AffineCorrectionAgent(nn.Module):
         self.fc2 = nn.Linear(128, 6)  # 出力層
 
     def forward(self, state):
-        state = state.view(-1)  # 入力を平坦化
+        # view()の代わりにreshape()を使用し、連続していないメモリレイアウトも処理できるようにする
+        state = state.reshape(-1)  # 入力を平坦化
         hidden = F.relu(self.fc1(state))  # 隠れ層にReLU活性化関数を適用
         affine_params = torch.tanh(self.fc2(hidden))  # 出力層にtanh活性化関数を適用
 
@@ -130,8 +131,9 @@ def train_affine_correction_agent(sharper_image, image_to_correct):
 
     # PyTorchテンソルに変換し、[0, 1]に正規化
     # OpenCVは画像を[B,G,R]の順で読み込むため、チャネルの順序を[C,H,W]に変更
-    sharper_tensor = torch.tensor(sharper_resized, dtype=torch.float32).permute(2, 0, 1) / 255.0
-    to_correct_tensor = torch.tensor(to_correct_resized, dtype=torch.float32).permute(2, 0, 1) / 255.0
+    # contiguous()を呼び出して連続したメモリレイアウトを確保
+    sharper_tensor = torch.tensor(sharper_resized, dtype=torch.float32).permute(2, 0, 1).contiguous() / 255.0
+    to_correct_tensor = torch.tensor(to_correct_resized, dtype=torch.float32).permute(2, 0, 1).contiguous() / 255.0
 
     # モデルとオプティマイザを初期化
     agent = AffineCorrectionAgent()
@@ -197,7 +199,7 @@ def apply_affine_transform(image, params):
 
 def main():
     image_path1 = '../../../Resources/Images/19_57_44/001.jpg'
-    image_path2 = '../../../Resources/Images/19_57_44/005.jpg'
+    image_path2 = '../../../Resources/Images/19_57_44/012.jpg'
     save_path = '../../../Resources/transformed_image.jpg'
     sharper_image, to_correct_image, _, _ = load_and_compare_sharpness(image_path1, image_path2)
     transformed_image = train_affine_correction_agent(sharper_image, to_correct_image)
